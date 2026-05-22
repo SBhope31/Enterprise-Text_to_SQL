@@ -98,8 +98,18 @@ def seed_products(session: Session) -> list[Product]:
 def seed_orders(
     session: Session, customers: list[Customer], products: list[Product], n: int = 1500
 ) -> list[Order]:
+    """Bulk-insert orders + their line items in two flushes total.
+
+    The original version flushed after every order to read back its ID,
+    which is 1,500 round trips — fine against localhost (<1ms), painful
+    against a remote DB (~250ms each = >6 min). We now plan everything
+    in memory, flush once for all orders to assign IDs, then flush once
+    for all items.
+    """
     today = date.today()
-    orders: list[Order] = []
+
+    # Plan every order + its items in memory, no DB calls.
+    plans: list[tuple[Order, list[tuple[Product, int, Decimal]]]] = []
     for _ in range(n):
         customer = random.choice(customers)
         days_ago = random.randint(0, 365)
@@ -111,28 +121,39 @@ def seed_orders(
             status=status,
             total_amount=Decimal("0.00"),
         )
-        session.add(order)
-        session.flush()
-
-        items_n = random.randint(1, 4)
+        items_plan: list[tuple[Product, int, Decimal]] = []
         total = Decimal("0.00")
-        for _ in range(items_n):
+        for _ in range(random.randint(1, 4)):
             product = random.choice(products)
             qty = random.randint(1, 3)
-            # add a little price noise vs. catalog price
-            unit_price = (Decimal(product.price) * Decimal(str(random.uniform(0.9, 1.05)))).quantize(Decimal("0.01"))
-            item = OrderItem(
+            # small price noise vs. catalog
+            unit_price = (
+                Decimal(product.price)
+                * Decimal(str(random.uniform(0.9, 1.05)))
+            ).quantize(Decimal("0.01"))
+            items_plan.append((product, qty, unit_price))
+            total += unit_price * qty
+        order.total_amount = total.quantize(Decimal("0.01"))
+        plans.append((order, items_plan))
+
+    # Flush #1: insert all orders, get their IDs back in one round trip.
+    session.add_all(o for o, _ in plans)
+    session.flush()
+
+    # Flush #2: build every OrderItem using the now-populated order.id, insert.
+    items: list[OrderItem] = []
+    for order, items_plan in plans:
+        for product, qty, unit_price in items_plan:
+            items.append(OrderItem(
                 order_id=order.id,
                 product_id=product.id,
                 quantity=qty,
                 unit_price=unit_price,
-            )
-            session.add(item)
-            total += unit_price * qty
-        order.total_amount = total.quantize(Decimal("0.01"))
-        orders.append(order)
+            ))
+    session.add_all(items)
     session.flush()
-    return orders
+
+    return [o for o, _ in plans]
 
 
 def seed_payments(session: Session, orders: list[Order]) -> None:
@@ -227,28 +248,39 @@ def seed_employees(session: Session, n: int = 80) -> None:
 
 
 def seed_returns(session: Session, orders: list[Order]) -> None:
-    # Build a flat list of (order, item) pairs once.
-    item_pool = []
-    for o in orders:
-        for it in o.items:
-            item_pool.append((o, it))
+    """Same remote-DB-friendly treatment as seed_orders: avoid lazy loads.
 
-    n_returns = int(len(item_pool) * 0.07)  # ~7% return rate
-    for _, item in random.sample(item_pool, min(n_returns, len(item_pool))):
-        order = session.get(Order, item.order_id)
-        if order is None:
+    The original version touched `o.items` (which triggers a lazy SELECT per
+    order — 1,500 round trips) and then `session.get(Order, ...)` per return.
+    We instead fetch all items in one query and resolve order_date via an
+    in-memory dict.
+    """
+    today = date.today()
+    order_date_by_id = {o.id: o.order_date for o in orders}
+
+    # One SELECT instead of 1,500 lazy loads.
+    items = session.query(OrderItem).all()
+
+    n_returns = int(len(items) * 0.07)  # ~7% return rate
+    sampled = random.sample(items, min(n_returns, len(items)))
+
+    returns: list[Return] = []
+    for item in sampled:
+        order_date = order_date_by_id.get(item.order_id)
+        if order_date is None:
             continue
-        rdate = order.order_date + timedelta(days=random.randint(3, 45))
-        if rdate > date.today():
-            rdate = date.today()
+        rdate = order_date + timedelta(days=random.randint(3, 45))
+        if rdate > today:
+            rdate = today
         refund_qty = random.randint(1, item.quantity)
-        ret = Return(
+        returns.append(Return(
             order_item_id=item.id,
             return_date=rdate,
             reason=random.choice(RETURN_REASONS),
             refund_amount=(Decimal(item.unit_price) * refund_qty).quantize(Decimal("0.01")),
-        )
-        session.add(ret)
+        ))
+    session.add_all(returns)
+    session.flush()
 
 
 def main() -> None:
