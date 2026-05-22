@@ -1,0 +1,82 @@
+# Render Blueprint for the Text-to-SQL Streamlit app.
+#
+# How to use:
+#   1. Push this repo to GitHub.
+#   2. In Render: New + → Blueprint → connect the repo → "Apply".
+#   3. Render will create:
+#        - a managed Postgres database ('textsql-db', free plan)
+#        - a Python web service running streamlit_app.py
+#      with the database env vars auto-wired.
+#   4. After the first deploy, set the remaining secrets in the Render dashboard:
+#        OPENAI_API_KEY     -> your Gemini key (or OpenAI key if you switch back)
+#        QDRANT_URL         -> your Qdrant Cloud cluster URL
+#        QDRANT_API_KEY     -> your Qdrant Cloud API key
+#   5. Once the service is live, open Render's shell and run ONE TIME:
+#        python -m scripts.seed_database
+#        python -m scripts.embed_schema
+#      to populate Postgres and Qdrant.
+#
+# Notes:
+#   - Free Render web services spin down after ~15 min idle; the first hit after
+#     idle has a cold-start delay of ~30s. Fine for a demo.
+#   - No Redis here. The cache layer falls back to a no-op when Redis is absent.
+
+services:
+  - type: web
+    name: text-to-sql
+    runtime: python
+    plan: free
+    autoDeploy: true
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run streamlit_app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+
+      # ---- LLM provider (Gemini by default) ----
+      - key: OPENAI_API_KEY        # secret: set in Render dashboard
+        sync: false
+      - key: OPENAI_BASE_URL
+        value: https://generativelanguage.googleapis.com/v1beta/openai/
+      - key: OPENAI_CHAT_MODEL
+        value: gemini-2.5-flash-lite
+      - key: OPENAI_EMBED_MODEL
+        value: gemini-embedding-001
+
+      # ---- Qdrant Cloud ----
+      - key: QDRANT_URL            # secret: set in Render dashboard
+        sync: false
+      - key: QDRANT_API_KEY        # secret: set in Render dashboard
+        sync: false
+      - key: QDRANT_COLLECTION
+        value: schema_context
+
+      # ---- Postgres (auto-wired from the database block below) ----
+      - key: POSTGRES_HOST
+        fromDatabase: { name: textsql-db, property: host }
+      - key: POSTGRES_PORT
+        fromDatabase: { name: textsql-db, property: port }
+      - key: POSTGRES_USER
+        fromDatabase: { name: textsql-db, property: user }
+      - key: POSTGRES_PASSWORD
+        fromDatabase: { name: textsql-db, property: password }
+      - key: POSTGRES_DB
+        fromDatabase: { name: textsql-db, property: database }
+
+      # ---- App config ----
+      - key: APP_ENV
+        value: prod
+      - key: LOG_LEVEL
+        value: INFO
+      - key: SQL_EXEC_TIMEOUT_SECONDS
+        value: "10"
+      - key: SQL_MAX_ROWS
+        value: "500"
+      - key: RETRIEVAL_TOP_K
+        value: "5"
+
+databases:
+  - name: textsql-db
+    plan: free
+    databaseName: textsql
+    user: textsql

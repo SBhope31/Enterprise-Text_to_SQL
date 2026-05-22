@@ -1,0 +1,45 @@
+# Trimmed to only what app/, scripts/, tests/, and streamlit_app.py actually import.
+# If you want to enable Ragas-based eval (app/eval/ragas_eval.py), `pip install ragas==0.2.6` separately.
+
+# ---------- Core Web Framework ----------
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+python-multipart==0.0.19
+pydantic==2.10.3
+pydantic-settings==2.7.0
+
+# ---------- Frontend ----------
+streamlit==1.41.1
+
+# ---------- Database (PostgreSQL) ----------
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10
+
+# ---------- Vector Database (Qdrant) ----------
+qdrant-client==1.12.1
+
+# ---------- LLM Client (OpenAI-compatible: OpenAI, Gemini, Groq, ...) ----------
+openai==1.57.4
+
+# ---------- Agent Pipeline ----------
+langgraph==0.2.60
+
+# ---------- Retrieval ----------
+rank-bm25==0.2.2
+numpy==1.26.4
+
+# ---------- SQL Validation ----------
+sqlglot==25.34.0
+
+# ---------- Caching ----------
+redis==5.2.1
+
+# ---------- Utilities ----------
+python-dotenv==1.0.1
+tenacity==9.0.0
+pandas==2.2.3
+
+# ---------- Testing ----------
+pytest==8.3.4
+pytest-asyncio==0.25.0
+pytest-cov==6.0.0

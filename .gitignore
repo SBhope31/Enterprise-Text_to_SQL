@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.coverage
+.mypy_cache/
+dist/
+build/
+
+# Virtualenv (any name)
+venv/
+.venv/
+env/
+
+# Secrets (NEVER commit these)
+.env
+.env.local
+*.pem
+*.key
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+
+# Claude Code local config
+.claude/
+
+# Logs and run artifacts
+logs/
+*.log
+*.output
+eval_report.json
+spider_report.json
+
+# Local data
+spider_data/
+qdrant_local/
