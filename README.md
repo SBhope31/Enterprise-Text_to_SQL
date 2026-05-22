@@ -79,15 +79,38 @@ In Streamlit, click any sample in the sidebar, or type your own. Some good ones 
 - *Average delivery time by carrier*
 - *Payment success rate by method this month*
 
-## Deployment
+## Deployment (Render)
 
-See **[DEPLOYMENT.md](DEPLOYMENT.md)** for the full Render walkthrough. The short version:
+End-to-end deploy: Streamlit on Render's free plan, Postgres on Render's free managed plan, Qdrant on Qdrant Cloud's free tier, Gemini for the LLM.
 
-1. Push to GitHub.
-2. Render: New + → Blueprint → connect repo. Render reads `render.yaml` and provisions everything.
-3. Create a free Qdrant Cloud cluster, set `QDRANT_URL` / `QDRANT_API_KEY` / `OPENAI_API_KEY` in the Render dashboard.
-4. Open the service shell once: `python -m scripts.seed_database && python -m scripts.embed_schema`.
-5. Open the service URL.
+**1. Create the external accounts (all free):**
+- Gemini API key → [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+- Qdrant Cloud 1GB cluster → [cloud.qdrant.io](https://cloud.qdrant.io) (after creation, go to **API Keys** → create one; copy both the cluster URL and the key)
+- Render account → [render.com](https://render.com)
+
+**2. Push this repo to GitHub.** `.env` is gitignored so local secrets stay local.
+
+**3. Deploy with the Blueprint.** In Render: **New +** → **Blueprint** → connect this repo → **Apply**. Render reads `render.yaml` and provisions a managed Postgres + a Python web service running Streamlit. All Postgres env vars are auto-wired.
+
+**4. Set the three secrets in the service's Environment tab:**
+| Key | Value |
+|---|---|
+| `OPENAI_API_KEY` | Your Gemini API key |
+| `QDRANT_URL` | Your Qdrant Cloud cluster URL (`https://...qdrant.io:6333`) |
+| `QDRANT_API_KEY` | Your Qdrant Cloud API key |
+
+**5. One-time data setup.** Open the service's **Shell** tab and run:
+```bash
+python -m scripts.seed_database     # creates tables + sample data
+python -m scripts.embed_schema      # builds the Qdrant collection
+```
+
+**6. Open the service URL** from the Render dashboard.
+
+### Notes
+- **Cold start.** Render free web services sleep after 15 min idle; first wake takes ~30 s.
+- **No Redis in prod.** `app/cache/redis_cache.py` detects this and silently disables the embedding cache. Not worth provisioning Redis for a demo.
+- **Switching back to OpenAI.** Remove `OPENAI_BASE_URL`, set `OPENAI_CHAT_MODEL=gpt-4o-mini`, `OPENAI_EMBED_MODEL=text-embedding-3-small`, and re-run `embed_schema` (it drops + recreates the Qdrant collection at the new dim — OpenAI's `text-embedding-3-small` is 1536-dim, Gemini's `gemini-embedding-001` is 3072-dim).
 
 ## Tech stack
 
