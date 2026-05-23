@@ -42,14 +42,6 @@ def _set_query(text: str) -> None:
 
 # ---- Sidebar ----
 with st.sidebar:
-    st.header("⚙️ Settings")
-    rewrite = st.toggle(
-        "Rewrite query before retrieval",
-        value=True,
-        help="Expand vague questions and resolve relative dates before schema retrieval.",
-    )
-    top_k = st.slider("Schema retrieval top-K", 1, 20, 5)
-    st.divider()
     st.subheader("Try a sample")
     for s in SAMPLES:
         st.button(
@@ -57,6 +49,14 @@ with st.sidebar:
             on_click=_set_query, args=(s,),
             use_container_width=True,
         )
+    st.divider()
+    with st.expander("⚙️ Advanced", expanded=False):
+        rewrite = st.toggle(
+            "Rewrite query before retrieval",
+            value=True,
+            help="Expand vague questions and resolve relative dates before schema retrieval.",
+        )
+        top_k = st.slider("Schema retrieval top-K", 1, 20, 5)
 
 # ---- Main ----
 st.title("🧮 Enterprise Text-to-SQL")
