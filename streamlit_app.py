@@ -12,6 +12,7 @@ import pandas as pd
 import streamlit as st
 
 from app.agents.orchestrator import get_full_pipeline
+from app.db.models import Base, SCHEMA_DESCRIPTIONS
 
 st.set_page_config(
     page_title="Text-to-SQL Intelligence",
@@ -65,10 +66,33 @@ st.caption(
     "enforcement), self-corrects on failure, and runs it."
 )
 
+# ---- About this demo (schema scope) ----
+_table_names = sorted(Base.metadata.tables.keys())
+with st.expander(
+    f"📚 About this demo — connected to a sample e-commerce DB ({len(_table_names)} tables)",
+    expanded=True,
+):
+    st.markdown(
+        "This is a **schema-grounded** Text-to-SQL agent: it answers questions "
+        "against a specific database, not generic SQL questions. The deployed demo "
+        "is wired to a seeded e-commerce dataset with the tables below. "
+        "**Ask questions about customers, products, orders, returns, payments, "
+        "shipments, or employees** — anything outside this schema will produce "
+        "stretched / incorrect SQL."
+    )
+    cols = st.columns(2)
+    for i, t in enumerate(_table_names):
+        desc = SCHEMA_DESCRIPTIONS.get(t, "").split(".")[0]
+        cols[i % 2].markdown(f"**`{t}`** — {desc}")
+    st.caption(
+        "Want to use your own schema? See the README — the pipeline is "
+        "schema-agnostic; only the seeded data is fixed."
+    )
+
 query = st.text_area(
     "Your question",
     key="query",
-    placeholder="e.g. top 5 customers by revenue last quarter",
+    placeholder="e.g. top 5 customers by revenue in the last 3 months",
     height=90,
 )
 ask = st.button("Ask", type="primary")
