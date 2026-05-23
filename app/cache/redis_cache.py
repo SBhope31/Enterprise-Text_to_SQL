@@ -21,8 +21,15 @@ def _hash_key(*parts: str) -> str:
 class RedisCache:
     def __init__(self) -> None:
         settings = get_settings()
+        # Opt-in: don't probe Redis at all unless REDIS_ENABLED is set. This
+        # avoids the 1.5s connect timeout and the warning log on every cold
+        # start in deployments that don't run Redis (e.g. Render free tier).
+        if not settings.redis_enabled:
+            self._client: redis.Redis | None = None
+            self._enabled = False
+            return
         try:
-            self._client: redis.Redis | None = redis.Redis.from_url(
+            self._client = redis.Redis.from_url(
                 settings.redis_url, decode_responses=False, socket_connect_timeout=1.5
             )
             self._client.ping()

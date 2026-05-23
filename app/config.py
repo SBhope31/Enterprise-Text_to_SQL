@@ -24,7 +24,8 @@ class Settings(BaseSettings):
     qdrant_api_key: str | None = Field(None, alias="QDRANT_API_KEY")
     qdrant_collection: str = Field("schema_context", alias="QDRANT_COLLECTION")
 
-    # Redis
+    # Redis (opt-in: caching stays off unless REDIS_ENABLED=true)
+    redis_enabled: bool = Field(False, alias="REDIS_ENABLED")
     redis_url: str = Field("redis://localhost:6379/0", alias="REDIS_URL")
 
     # App
