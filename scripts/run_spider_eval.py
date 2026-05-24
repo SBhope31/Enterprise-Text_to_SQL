@@ -21,11 +21,17 @@ def main() -> None:
     ap.add_argument("--root", default="spider_data")
     ap.add_argument("--k", type=int, default=5)
     ap.add_argument("--limit", type=int, default=None, help="evaluate only N items")
+    ap.add_argument(
+        "--offset", type=int, default=0,
+        help="skip the first N items (useful for resuming under daily LLM quotas)",
+    )
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
     ds = SpiderDataset(root=args.root)
-    summary = evaluate_spider(limit=args.limit, k=args.k, dataset=ds)
+    summary = evaluate_spider(
+        limit=args.limit, k=args.k, dataset=ds, offset=args.offset,
+    )
 
     print("\n=== Spider aggregate metrics ===")
     for k_, v in summary.as_dict().items():

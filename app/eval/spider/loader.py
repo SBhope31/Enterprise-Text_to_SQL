@@ -65,10 +65,13 @@ class SpiderDataset:
                 "The official zip includes a `database/` folder."
             )
 
-    def load_dev(self, limit: int | None = None) -> list[SpiderItem]:
+    def load_dev(
+        self, limit: int | None = None, offset: int = 0
+    ) -> list[SpiderItem]:
         raw = json.loads(self.dev_path.read_text(encoding="utf-8"))
+        sliced = raw[offset:]
         items: list[SpiderItem] = []
-        for row in raw:
+        for row in sliced:
             items.append(
                 SpiderItem(
                     question=row["question"],

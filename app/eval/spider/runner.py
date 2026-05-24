@@ -195,11 +195,12 @@ def evaluate_spider(
     limit: int | None = None,
     k: int = 5,
     dataset: SpiderDataset | None = None,
+    offset: int = 0,
 ) -> SpiderRunSummary:
     configure_logging()
     ds = dataset or SpiderDataset()
-    items = ds.load_dev(limit=limit)
-    log.info("Running Spider eval on %d items (k=%d)", len(items), k)
+    items = ds.load_dev(limit=limit, offset=offset)
+    log.info("Running Spider eval on %d items (k=%d, offset=%d)", len(items), k, offset)
 
     results: list[SpiderItemResult] = []
     for i, item in enumerate(items, start=1):
