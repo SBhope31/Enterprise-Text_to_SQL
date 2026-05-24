@@ -16,7 +16,9 @@ class OpenAIEmbedder:
         self._cache = get_cache()
         self._dim_cache: int | None = None
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=8))
+    # Free-tier Gemini embeddings are tightly rate-limited (~5 RPM). Retry has
+    # to be patient enough to ride out a full 60s window or it gives up early.
+    @retry(stop=stop_after_attempt(6), wait=wait_exponential(multiplier=2, min=2, max=60))
     def _embed_uncached(self, texts: list[str]) -> list[list[float]]:
         resp = self._client.embeddings.create(model=self._model, input=texts)
         return [d.embedding for d in resp.data]

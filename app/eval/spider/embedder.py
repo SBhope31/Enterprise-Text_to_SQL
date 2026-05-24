@@ -6,6 +6,8 @@ few-shot examples (those are app-specific).
 """
 from __future__ import annotations
 
+import time
+
 from app.eval.spider.loader import SpiderDataset, SpiderSchema
 from app.monitoring.logger import get_logger
 from app.rag.embeddings import OpenAIEmbedder
@@ -14,6 +16,10 @@ from app.rag.vector_store import QdrantSchemaStore, SchemaDoc
 log = get_logger(__name__)
 
 SPIDER_COLLECTION = "spider_schemas"
+
+# Gemini free tier caps embeddings at ~5 RPM. Sleep between batches so we
+# don't burn through the per-minute quota and trigger 429 / 500s.
+BATCH_PACE_SECONDS = 13
 
 
 def build_docs_for(schema: SpiderSchema) -> list[SchemaDoc]:
@@ -68,6 +74,7 @@ def embed_spider_corpus(
     log.info("Embedding %d Spider databases", len(targets))
 
     total = 0
+    first_batch = True
     for db_id in targets:
         try:
             schema = ds.introspect(db_id)
@@ -76,9 +83,12 @@ def embed_spider_corpus(
             continue
         docs = build_docs_for(schema)
         for i in range(0, len(docs), batch_size):
+            if not first_batch:
+                time.sleep(BATCH_PACE_SECONDS)
             chunk = docs[i : i + batch_size]
             vectors = embedder.embed([d.text for d in chunk])
             store.upsert(chunk, vectors)
+            first_batch = False
         total += len(docs)
         log.info("  %s -> %d docs", db_id, len(docs))
     return total
