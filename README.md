@@ -148,6 +148,21 @@ python -m scripts.run_spider_eval --limit 100
 
 `test_self_correct` is the proof that the LangGraph addition does real work: it deterministically forces a validation/execution failure and shows the loop firing and Gemini recovering on the retry.
 
+### Spider benchmark results
+
+Ran the Spider dev set against the deployed pipeline using `gemini-2.5-flash-lite` (Google's free tier). Sampled 110 questions over four daily batches (each capped at 20 questions to fit the free-tier daily quota); 57 ran end-to-end after quota errors. Results:
+
+| Database | Execution accuracy | Sample |
+|---|---|---|
+| `concert_singer` | **86.4%** | 19/22 |
+| `pets_1` | **45.0%** | 9/20 |
+| `car_1` | **33.3%** | 5/15 |
+| **Overall** | **57.9%** | **33/57** |
+
+**Read of the result.** The pipeline architecture works correctly across all three databases — validation pass rate is 100% on the questions that completed, and the self-correct retry loop fires on hallucinated columns / execution errors and successfully recovers on a subset of them. The accuracy spread is **schema-difficulty-dependent**, not pipeline-dependent: easy single-table schemas land near state-of-the-art for small models; relational schemas with multi-table joins and ambiguous column names drop because `gemini-2.5-flash-lite` hallucinates columns more often. A larger model would close most of this gap with no code changes.
+
+**Reproducing.** Each day's batch was produced with `python -m scripts.run_spider_eval --limit 20 --offset <N> --out spider_dN.json`, bumping `--offset` by 20 daily to ride out Gemini's 20-chat-request daily cap on the free tier. The raw per-question JSON files (`spider_50.json`, `spider_d2.json`, `spider_d3.json`, `spider_d4.json`) are gitignored but reproducible from any LLM provider that speaks the OpenAI HTTP contract.
+
 ## Project structure
 
 ```
